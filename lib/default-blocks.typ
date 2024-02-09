@@ -1,6 +1,7 @@
+#import "helper.typ": parse-time
+
 #let display-time(time) = {
-  let hour = int(time)
-  let minute = 60 * (time - hour)
+  let (hour, minute) = parse-time(time)
   if hour < 10 { [0] }
   str(hour)
   [:]
@@ -18,7 +19,7 @@
     event.room
     if not unique {
       h(1fr)
-      emoji.warning
+      text(font: "Segoe UI Emoji", emoji.warning)
     }
     if show-time {
       linebreak()
@@ -34,10 +35,8 @@
   if time.keys().contains("display") {
     time.display
   } else {
-    lang-dict.from + " "
     display-time(time.start)
-    linebreak()
-    lang-dict.to + " "
+    [ -- ]
     display-time(time.end)
   }
 })

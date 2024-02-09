@@ -1,14 +1,3 @@
-#let weekdays = ("Mon", "Tue", "Wed", "Thu", "Fri")
-
-#let load-language(lang, language-file: "languages.toml") = {
-  let language-dict = toml(language-file)
-  if lang in language-dict {
-    language-dict.at(lang)
-  } else {
-    panic("Unfortunately, `" + lang + "` does not exist in `" + language-file + "`.")
-  }
-}
-
 #let load-color-theme(theme-name, themes-file: "colorthemes.toml") = {
   let theme-dict = toml(themes-file)
   if theme-name in theme-dict {
@@ -54,25 +43,55 @@
   courses
 }
 
+#let parse-time(time) = {
+  let split = if type(time) in ("integer", "float") { (time,) } else { time.split(":") }
+  let hour = int(split.at(0))
+  let minute = if split.len() > 1 {
+    int(split.at(1))
+  } else {
+    0
+  }
+
+  return (hour, minute)
+}
+
+#let sum-time(a, b, negative: false) = {
+  let (ah, am) = parse-time(a)
+  let (bh, bm) = parse-time(b)
+  if negative {
+    bh = -bh
+    bm = -bm
+  }
+
+  am += bm
+  ah += bh + calc.div-euclid(am, 60)
+  am = calc.rem-euclid(am, 60)
+
+  if ah < 10 { "0" }
+  str(ah) + ":"
+  if am < 10 { "0" }
+  str(am)
+}
+
 #let process-timetable-data(data, colors) = {
-  let time-overlap(ev, time) = time.start <= ev.start and ev.start < time.end or time.start < ev.end and ev.end <= time.end or ev.start < time.start and time.end < ev.end
+  let time-overlap(ev, time) = time.start <= ev.start and ev.start < time.end or time.start < ev.end and ev.end <= time.end or ev.start <= time.start and time.start < ev.end or ev.start < time.end and time.end <= ev.end
 
   let defaults = data.at("defaults", default: (:))
-  let default-duration = defaults.at("duration", default: 2)
+  let default-duration = defaults.at("duration", default: "02:00")
 
-  let slots = weekdays.map(_ => data.general.times.map(_ => none))
+  let slots = data.weekdays.map(_ => data.general.times.map(_ => none))
   let alts  = ()
   let times = data.general.times.map(
     time => (
       ..time,
-      start: if "start" in time { time.start } else { time.end - default-duration },
-      end: if "end" in time { time.end } else { time.start + default-duration }
+      start: if "start" in time { time.start } else { sum-time(time.end, default-duration, negative: true) },
+      end: if "end" in time { time.end } else { sum-time(time.start, default-duration) }
     )
   )
-  
+
   let courses = courses-parser(data, colors)
 
-  for (i, day) in weekdays.enumerate() {
+  for (i, day) in data.weekdays.enumerate() {
     let day-evs = courses.map(
       course => course.at("events", default: (:)).pairs().map(
         evtype => evtype.at(1).filter(
@@ -82,33 +101,52 @@
           ..k,      // get all properties from the event, included later hence can overwrite course properties (e.g. for priority)
           kind: evtype.at(0),
           // change if absent with special values
-          start: if "start" in k { k.start } else { k.end - default-duration },
-          end: if "end" in k { k.end } else { k.start + default-duration }
+          start: if "start" in k { k.start } else { sum-time(k.end, default-duration, negative: true) },
+          end: if "end" in k { k.end } else { sum-time(k.start, default-duration) }
         )).flatten()
       ).flatten()
     ).flatten().sorted(key: ev => ev.priority).rev()
-    
+
     for ev in day-evs {
+      let conflict = false
       for (j, time) in times.enumerate() {
         if time-overlap(ev, time) {
+          let conflict_j = j
           if slots.at(i).at(j) == none {
             // also check the duration
             let duration = times.slice(j + 1).enumerate()
               .find(x => not time-overlap(ev, x.at(1)))
             let duration = if duration == none { 0 } else { duration.at(0) }
             ev.insert("duration", duration)
-            
-            slots.at(i).at(j) = ev
+
             if duration > 0 {
               for k in range(duration) {
-                slots.at(i).at(j + k + 1) = ("occupied": true) // notify that this spot is already occupied
+                if slots.at(i).at(j + k + 1) != none {
+                  conflict = true
+                  conflict_j = j + k + 1
+                  break
+                }
               }
             }
-            break
+            if not conflict {
+              slots.at(i).at(j) = ev
+              for k in range(duration) {
+                  slots.at(i).at(j + k + 1) = ("occupied": true) // notify that this spot is already occupied
+              }
+            }
           } else {
-            alts.push(ev)
-            slots.at(i).at(j).insert("unique", false)
+            conflict = true
+            conflict_j = j
           }
+          if conflict {
+            alts.push(ev)
+            slots.at(i).at(conflict_j).insert("unique", false)
+          } else {
+            break
+          }
+        }
+        if conflict {
+          break
         }
       }
     }
