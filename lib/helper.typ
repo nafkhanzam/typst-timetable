@@ -78,8 +78,9 @@
 
   let defaults = data.at("defaults", default: (:))
   let default-duration = defaults.at("duration", default: "02:00")
+  let weekdays = data.general.weekdays
 
-  let slots = data.weekdays.map(_ => data.general.times.map(_ => none))
+  let slots = weekdays.map(_ => data.general.times.map(_ => none))
   let alts  = ()
   let times = data.general.times.map(
     time => (
@@ -91,7 +92,7 @@
 
   let courses = courses-parser(data, colors)
 
-  for (i, day) in data.weekdays.enumerate() {
+  for (i, day) in weekdays.enumerate() {
     let day-evs = courses.map(
       course => course.at("events", default: (:)).pairs().map(
         evtype => evtype.at(1).filter(

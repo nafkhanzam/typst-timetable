@@ -26,6 +26,7 @@
   }
 
   let defaults = data.at("defaults", default: (:))
+  let weekdays = data.general.weekdays
 
   let colors = if type(color-theme) == str {
     lib.load-color-theme(color-theme)
@@ -36,7 +37,7 @@
   let final-data = times.enumerate().map(
     time => (
       time-cell(time.at(1), lang-dict),
-      data.weekdays.enumerate().map(d => slots.at(d.at(0)).at(time.at(0))).map(ev =>
+      weekdays.enumerate().map(d => slots.at(d.at(0)).at(time.at(0))).map(ev =>
         if ev == none {
           []
         } else if ev.at("occupied", default: false) {
@@ -65,14 +66,14 @@
 
   // Main Timetable
   tablex(
-    columns: (auto, ..data.weekdays.len()*(1fr,)),
+    columns: (auto, ..weekdays.len()*(1fr,)),
     stroke: (
       paint: gray,
       thickness: 0.5pt,
       dash: "dashed"
     ),
     ..tablex-args,
-    [], ..data.weekdays.map(day => align(center, day)),
+    [], ..weekdays.map(day => align(center, day)),
     ..final-data,
   )
 
@@ -83,7 +84,7 @@
     text(14pt, lang-dict.alternatives + ":")
     v(-12pt)
     tablex(
-      columns: data.weekdays.len()*(1fr,),
+      columns: weekdays.len()*(1fr,),
       column-gutter: 5pt,
       //stroke: gray + 0.5pt,
       stroke: none,
