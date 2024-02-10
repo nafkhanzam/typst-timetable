@@ -118,7 +118,7 @@
             // also check the duration
             let duration = times.slice(j + 1).enumerate()
               .find(x => not time-overlap(ev, x.at(1)))
-            let duration = if duration == none { 0 } else { duration.at(0) }
+            let duration = if duration == none { times.len() - j - 1 } else { duration.at(0) }
             ev.insert("duration", duration)
 
             if duration > 0 {
