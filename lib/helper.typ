@@ -110,6 +110,7 @@
 
     for ev in day-evs {
       let conflict = false
+      let already_conflict = false
       for (j, time) in times.enumerate() {
         if time-overlap(ev, time) {
           let conflict_j = j
@@ -129,7 +130,7 @@
                 }
               }
             }
-            if not conflict {
+            if not conflict and not already_conflict {
               slots.at(i).at(j) = ev
               for k in range(duration) {
                   slots.at(i).at(j + k + 1) = ("occupied": true) // notify that this spot is already occupied
@@ -140,14 +141,26 @@
             conflict_j = j
           }
           if conflict {
-            alts.push(ev)
+            if not already_conflict {
+              alts.push(ev)
+            }
             slots.at(i).at(conflict_j).insert("unique", false)
+            already_conflict = true
           } else {
             break
           }
         }
         if conflict {
           break
+        }
+      }
+    }
+    for (j, ev) in slots.at(i).enumerate() {
+      if ev != none and "start" in ev {
+        for alt in alts {
+          if time-overlap(ev, alt) {
+            slots.at(i).at(j).insert("unique", false)
+          }
         }
       }
     }
