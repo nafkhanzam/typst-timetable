@@ -1,4 +1,3 @@
-#import "@preview/tablex:0.0.8": tablex, rowspanx
 #import "lib/helper.typ" as lib
 #import "lib/default-blocks.typ"
 
@@ -8,7 +7,7 @@
   show-header: true,
   show-alternatives: true,
   show-description: true,
-  tablex-args: (:),
+  table-args: (:),
   event-cell: default-blocks.event-cell,
   time-cell: default-blocks.time-cell,
   color-theme: "tab",
@@ -34,11 +33,14 @@
 
   let (times, courses, description, slots, alts) = lib.process-timetable-data(data, colors)
 
-  let final-data = times.enumerate().map(
-    time => (
+  let final-data = times
+    .enumerate()
+    .map(time => (
       time-cell(time.at(1), lang-dict),
-      weekdays.enumerate().map(d => slots.at(d.at(0)).at(time.at(0))).map(ev =>
-        if ev == none {
+      weekdays
+        .enumerate()
+        .map(d => slots.at(d.at(0)).at(time.at(0)))
+        .map(ev => if ev == none {
           []
         } else if ev.at("occupied", default: false) {
           ()
@@ -46,13 +48,13 @@
           let cell = event-cell(
             ev,
             show-time: time.at(1).at("show-time", default: defaults.at("show-time", default: false)),
-            unique: ev.at("unique", default: true)
+            unique: ev.at("unique", default: true),
           )
-          if ev.duration > 0 { rowspanx(ev.duration + 1, cell) } else { cell }
-        }
-      ).flatten()
-    ).flatten()
-  ).flatten()
+          if ev.duration > 0 { table.cell(rowspan: ev.duration + 1, cell) } else { cell }
+        })
+        .flatten(),
+    ).flatten())
+    .flatten()
 
   // Title
   if show-header {
@@ -65,15 +67,16 @@
   }
 
   // Main Timetable
-  tablex(
-    columns: (auto, ..weekdays.len()*(1fr,)),
+  table(
+    columns: (auto, ..weekdays.len() * (1fr,)),
     stroke: (
       paint: gray,
       thickness: 0.5pt,
-      dash: "dashed"
+      dash: "dashed",
     ),
-    ..tablex-args,
-    [], ..weekdays.map(day => align(center, day)),
+    ..table-args,
+    [],
+    ..weekdays.map(day => align(center, day)),
     ..final-data,
   )
 
@@ -83,14 +86,12 @@
   if show-alternatives and alts.len() > 0 {
     text(14pt, lang-dict.alternatives + ":")
     v(-12pt)
-    tablex(
-      columns: weekdays.len()*(1fr,),
+    table(
+      columns: weekdays.len() * (1fr,),
       column-gutter: 5pt,
       //stroke: gray + 0.5pt,
       stroke: none,
-      ..alts.map(
-        ev => event-cell(ev, show-time: true, show-day: true)
-      )
+      ..alts.map(ev => event-cell(ev, show-time: true, show-day: true)),
     )
   }
 
@@ -98,29 +99,30 @@
   if show-description {
     text(14pt, lang-dict.description + ":")
     v(-6pt)
-    style(sty => {
-      let h = measure([Hello], sty).height
-      tablex(
+    context {
+      let h = measure([Hello]).height
+      table(
         columns: description.len() + 2,
         stroke: (
           paint: gray,
           thickness: 0.5pt,
-          dash: "dashed"
+          dash: "dashed",
         ),
-        ..tablex-args, // at the moment tablex does not span the whole width
-        none, none, ..description.map(d => strong(d.title)),
-        ..courses.filter(
-          c => not c.at("hide-description", default: false)
-        ).map(
-          c => (
+        ..table-args, // at the moment table does not span the whole width
+        none,
+        none,
+        ..description.map(d => strong(d.title)),
+        ..courses
+          .filter(c => not c.at("hide-description", default: false))
+          .map(c => (
             rect(fill: c.color, width: h, height: h),
             strong(c.abbrv),
             ..description.map(
-              d => (d.contentfn)(c.at(d.id, default: "")) // wraps content in link or other stuff
-            )
-          )
-        ).flatten()
+              d => [#(d.contentfn)(c.at(d.id, default: ""))], // wraps content in link or other stuff
+            ),
+          ))
+          .flatten(),
       )
-    })
+    }
   }
 }
